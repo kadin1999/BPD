@@ -1,1 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BPD Support – Dashboard</title>
+<style>
+:root{
+  --bg-dark:#071227;
+  --bg-light:#f4f7fb;
+  --card-dark:#071a2a;
+  --card-light:#ffffff;
+  --accent-pink:#ff6fb3;
+  --accent-blue:#00c2ff;
+  --text-dark:#e6eef8;
+  --text-light:#10202b;
+  --muted-dark:#94a3b8;
+  --muted-light:#657786;
+}
+body[data-theme='dark']{
+  --bg:var(--bg-dark);
+  --card:var(--card-dark);
+  --accent:var(--accent-blue);
+  --text:var(--text-dark);
+  --muted:var(--muted-dark);
+}
+body[data-theme='light']{
+  --bg:var(--bg-light);
+  --card:var(--card-light);
+  --accent:var(--accent-blue);
+  --text:var(--text-light);
+  --muted:var(--muted-light);
+}
+body[data-theme='pink']{
+  --bg:#2b0720;
+  --card:#3b0b2a;
+  --accent:var(--accent-pink);
+  --text:#ffeaf3;
+  --muted:#f0a6c9;
+}
+body[data-theme='blue']{
+  --bg:#021826;
+  --card:#042a3b;
+  --accent:var(--accent-blue);
+  --text:#e6fbff;
+  --muted:#9fe9ff;
+}
+
+*{box-sizing:border-box;font-family:Inter,system-ui,sans-serif}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);scroll-behavior:smooth;}
+button{cursor:pointer}
+
+.container{max-width:900px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px;position:relative;}
+h1{margin:0;font-weight:800;text-align:center}
+
+.card{background:var(--card);border-radius:16px;padding:16px;box-shadow:0 6px 18px rgba(0,0,0,0.3);transition:transform 0.2s;user-select:none;}
+.card-header{font-weight:700;font-size:1.1rem;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.card-body{display:flex;flex-direction:column;gap:8px;}
+
+.navbar{position:fixed;bottom:0;width:100%;background:var(--card);display:flex;justify-content:space-around;padding:10px 0;box-shadow:0 -3px 10px rgba(0,0,0,0.3);}
+.navbar button{background:transparent;border:none;color:var(--text);font-size:1.2rem;font-weight:700;}
+.navbar button.active{color:var(--accent)}
+
+input, textarea, select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--text);width:100%}
+textarea{resize:none;}
+.small{font-size:0.8rem;color:var(--muted)}
+
+.hidden{display:none}
+
+/* simple chart style for episodes */
+#episodeChart, #moodChart{width:100%;height:160px;background:rgba(255,255,255,0.05);border-radius:12px;padding:12px;overflow:auto;font-size:0.8rem;}
+
+/* Drag & Drop styles */
+#homeDropArea{min-height:150px;border:2px dashed var(--accent);border-radius:12px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:10px;}
+.draggable-card{cursor:pointer;padding:8px;border-radius:8px;border:1px solid var(--accent);text-align:center;background:var(--card);}
+
+/* Sidebar for drag cards */
+#sidebar{position:fixed;right:0;top:50px;width:200px;background:var(--card);border-left:2px solid var(--accent);height:80%;padding:10px;overflow:auto;display:flex;flex-direction:column;gap:10px;z-index:1000;}
+#sidebar h3{text-align:center;margin:0 0 10px 0;}
+</style>
+</head>
+<body data-theme="dark">
+
+<div class="container">
+  <h1>BPD Support Dashboard</h1>
+  
+  <div class="card" id="homeSection">
+    <div class="card-header">🏠 Home</div>
+    <div class="card-body">
+      <input type="range" id="moodSlider" min="0" max="10" value="5"/>
+      <div id="moodLabel">5 — Neutral</div>
+      <div id="homeDropArea">Drag tools here for quick access</div>
+      <canvas id="moodChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card" id="journalSection">
+    <div class="card-header">✍️ Journal</div>
+    <div class="card-body">
+      <input type="date" id="jDate"/>
+      <input type="number" id="jMood" min="0" max="10" placeholder="Mood 0-10"/>
+      <textarea id="jText" placeholder="Write how you feel..."></textarea>
+      <button id="jSave">Save Entry</button>
+      <div class="small">Recent entries</div>
+      <div id="jList"></div>
+    </div>
+  </div>
+
+  <div class="card" id="episodesSection">
+    <div class="card-header">📈 Episode Tracker</div>
+    <div class="card-body">
+      <input type="datetime-local" id="epStart"/>
+      <input type="datetime-local" id="epEnd"/>
+      <input type="text" id="epNote" placeholder="Short note / trigger"/>
+      <button id="epSave">Save Episode</button>
+      <div class="small">Saved episodes</div>
+      <div id="epList"></div>
+    </div>
+  </div>
+
+  <div class="card" id="resourcesSection">
+    <div class="card-header">🌸 Coping Skills & Resources</div>
+    <div class="card-body">
+      <button class="coping" data-msg="5-4-3-2-1: Name 5 things you SEE, 4 you TOUCH, 3 you HEAR, 2 you SMELL, 1 you TASTE.">5-4-3-2-1 Grounding</button>
+      <button class="coping" data-msg="Box breathing: Inhale 4s → Hold 4s → Exhale 4s → Hold 4s.">Box Breathing</button>
+      <button class="coping" data-msg="Self-soothing: Listen to music, hold something comforting, or take deep breaths.">Self-soothing</button>
+      <button class="coping" data-msg="Mindful observation: Focus on an object, describe it in detail in your mind.">Mindful Observation</button>
+      <div class="small">Contacts</div>
+      <input id="cName" placeholder="Name"/>
+      <input id="cPhone" placeholder="Phone / Info"/>
+      <button id="addContact">Add Contact</button>
+      <div id="contactList"></div>
+    </div>
+  </div>
+
+  <div class="card" id="settingsSection">
+    <div class="card-header">⚙️ Settings</div>
+    <div class="card-body">
+      <select id="themePick">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="pink">Pink</option>
+        <option value="blue">Blue</option>
+      </select>
+      <button id="resetData">Reset App Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Sidebar -->
+<div id="sidebar">
+  <h3>Tools</h3>
+  <div class="draggable-card" data-card="journalSection" draggable="true">✍️ Journal</div>
+  <div class="draggable-card" data-card="episodesSection" draggable="true">📈 Episode Tracker</div>
+  <div class="draggable-card" data-card="resourcesSection" draggable="true">🌸 Coping Skills</div>
+  <div class="draggable-card" data-card="settingsSection" draggable="true">⚙️ Settings</div>
+</div>
+
+<div class="navbar">
+  <button data-target="homeSection" class="active">Home</button>
+  <button data-target="journalSection">Journal</button>
+  <button data-target="episodesSection">Tracker</button>
+  <button data-target="resourcesSection">Tools</button>
+  <button data-target="settingsSection">Settings</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Navigation
+const sections = document.querySelectorAll('.container .card');
+const navButtons = document.querySelectorAll('.navbar button');
+function showSection(id){
+  sections.forEach(s=>s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  navButtons.forEach(b=>b.classList.remove('active'));
+  navButtons.forEach(b=>{if(b.dataset.target===id)b.classList.add('active')});
+}
+navButtons.forEach(b=>b.addEventListener('click',()=>showSection(b.dataset.target)));
+showSection('homeSection');
+
+// Mood slider
+const moodSlider = document.getElementById('moodSlider');
+const moodLabel = document.getElementById('moodLabel');
+let moodHistory = [];
+const moodChartCtx = document.getElementById('moodChart').getContext('2d');
+const moodChart = new Chart(moodChartCtx, {
+  type:'line',
+  data:{labels:[],datasets:[{label:'Mood',data:[],borderColor:'#00c2ff',backgroundColor:'rgba(0,194,255,0.2)',fill:true,tension:0.3}]},
+  options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{min:0,max:10}}}
+});
+function updateMoodChart(){
+  moodChart.data.labels = moodHistory.map(m=>new Date(m.time).toLocaleTimeString());
+  moodChart.data.datasets[0].data = moodHistory.map(m=>m.value);
+  moodChart.update();
+}
+moodSlider.addEventListener('input', ()=>{ 
+  const v = moodSlider.value;
+  let txt=''; 
+  if(v<=2) txt='Very low'; 
+  else if(v<=4) txt='Low'; 
+  else if(v<=6) txt='Neutral'; 
+  else if(v<=8) txt='Good'; 
+  else txt='Very good';
+  moodLabel.textContent=`${v} — ${txt}`;
+  // Save to mood history
+  moodHistory.push({time:Date.now(),value:v});
+  updateMoodChart();
+});
+
+// Theme selector
+const themePick = document.getElementById('themePick');
+const savedTheme = localStorage.getItem('bpd_theme')||'dark';
+document.body.setAttribute('data-theme',savedTheme);
+themePick.value=savedTheme;
+themePick.addEventListener('change',()=>{document.body.setAttribute('data-theme',themePick.value); localStorage.setItem('bpd_theme',themePick.value)});
+
+// Local storage state
+const DB = 'bpd_v9_data';
+let state = JSON.parse(localStorage.getItem(DB)||'{"journal":[],"episodes":[],"contacts":[]}') ;
+function saveState(){localStorage.setItem(DB,JSON.stringify(state))}
+
+// Journal
+const jSave=document.getElementById('jSave'), jList=document.getElementById('jList');
+function renderJournal(){ 
+  jList.innerHTML=''; 
+  state.journal.slice().reverse().forEach(j=>{
+    const d=document.createElement('div');
+    d.className='small'; 
+    d.innerHTML=`<strong>${new Date(j.time).toLocaleString()}</strong> Mood:${j.mood||'—'}<div>${j.text}</div>`;
+    jList.appendChild(d)
+  })
+}
+jSave.addEventListener('click',()=>{
+  const dateVal=document.getElementById('jDate').value?new Date(document.getElementById('jDate').value).getTime():Date.now();
+  const mood=document.getElementById('jMood').value||null;
+  const text=document.getElementById('jText').value||'';
+  if(!text.trim()){alert('Write something to save'); return;}
+  state.journal.push({time:dateVal,mood,text});
+  saveState(); renderJournal(); document.getElementById('jText').value=''; document.getElementById('jMood').value='';
+});
+renderJournal();
+
+// Episodes
+const epSave=document.getElementById('epSave'), epList=document.getElementById('epList');
+function renderEpisodes(){ 
+  epList.innerHTML=''; 
+  state.episodes.slice().reverse().forEach(ep=>{
+    const d=document.createElement('div'); 
+    d.className='small'; 
+    d.innerHTML=`<strong>${new Date(ep.start).toLocaleString()}</strong> → ${ep.end?new Date(ep.end).toLocaleString():'Ongoing'}<div>${ep.note}</div>`;
+    epList.appendChild(d)
+  })
+}
+epSave.addEventListener('click',()=>{
+  const s=document.getElementById('epStart').value?new Date(document.getElementById('epStart').value).getTime():Date.now();
+  const e=document.getElementById('epEnd').value?new Date(document.getElementById('epEnd').value).getTime():null;
+  const note=document.getElementById('epNote').value||'';
+  state.episodes.push({start:s,end:e,note});
+  saveState(); renderEpisodes();
+  document.getElementById('epStart').value=''; document.getElementById('epEnd').value=''; document.getElementById('epNote').value='';
+});
+renderEpisodes();
+
+// Contacts
+const addContactBtn=document.getElementById('addContact'), contactList=document.getElementById('contactList');
+function renderContacts(){ 
+  contactList.innerHTML=''; 
+  state.contacts.forEach((c,idx)=>{
+    const d=document.createElement('div'); 
+    d.className='small'; 
+    d.innerHTML=`${c.name} — ${c.phone} <button data-idx="${idx}">Remove</button>`; 
+    contactList.appendChild(d)
+  });
+  contactList.querySelectorAll('button').forEach(b=>b.addEventListener('click',e=>{
+    state.contacts.splice(Number(e.target.dataset.idx),1); saveState(); renderContacts()
+  })) 
+}
+addContactBtn.addEventListener('click',()=>{ 
+  const n=document.getElementById('cName').value, p=document.getElementById('cPhone').value; 
+  if(!n)return alert('Add a name'); 
+  state.contacts.push({name:n,phone:p}); saveState(); renderContacts(); 
+  document.getElementById('cName').value=''; document.getElementById('cPhone').value='';
+})
+renderContacts();
+
+// Coping tools
+document.querySelectorAll('.coping').forEach(b=>{
+  b.addEventListener('click',()=>alert(b.dataset.msg))
+});
+
+// Reset
+document.getElementById('resetData').addEventListener('click',()=>{
+  if(confirm('Reset all app data?')){
+    state={journal:[],episodes:[],contacts:[]};
+    moodHistory=[];
+    saveState();
+    renderJournal(); renderEpisodes(); renderContacts();
+    updateMoodChart();
+  }
+});
+
+// Drag & Drop functionality
+const sidebarCards = document.querySelectorAll('#sidebar .draggable-card');
+const dropArea = document.getElementById('homeDropArea');
+sidebarCards.forEach(card=>{
+  card.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', card.dataset.card);
+  });
+});
+dropArea.addEventListener('dragover', e=>{e.preventDefault();});
+dropArea.addEventListener('drop', e=>{
+  e.preventDefault();
+  const id = e.dataTransfer.getData('text/plain');
+  const el = document.getElementById(id).cloneNode(true);
+  el.style.width='100%';
+  dropArea.appendChild(el);
+});
+</script>
+</body>
+</html>
 
